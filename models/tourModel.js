@@ -9,6 +9,10 @@ const schema = new mongoose.Schema(
       trim: true,
       required: [true, 'A tour must have a name!'],
     },
+    secretTour: {
+      type: Boolean,
+      required: [true, 'A tour must be secret or not!'],
+    },
     ratingsAverage: {
       type: Number,
       default: 4.5,
@@ -123,6 +127,7 @@ schema.post(/^find/, function (_, next) {
 // Aggregation middleware
 schema.pre('aggregate', function (next) {
   this.startTime = Date.now();
+  this._pipeline.unshift({ $match: { secretTour: { $ne: true } } });
 
   next();
 });
