@@ -1,3 +1,5 @@
+const AppError = require('./appError');
+
 class APIFeatures {
   constructor(model, queryObject) {
     this._model = model;
@@ -46,12 +48,13 @@ class APIFeatures {
     const limit = Number(this.queryObject.limit) || 100;
 
     if (!Number.isInteger(page) || !Number.isInteger(limit))
-      throw new Error('"page" and "limit" need to be an integer!');
+      throw new AppError('"page" and "limit" need to be an integer!', 400);
 
     const totalDocuments = await this._model.countDocuments(this.queryObject);
+    const pages = Math.ceil(totalDocuments / limit);
 
-    if (page < 0 || page > Math.ceil(totalDocuments / limit))
-      throw new Error('"page" not found!');
+    if (page < 0 || (page > pages && pages))
+      throw new AppError('"page" not found!', 400);
 
     const skip = (page - 1) * limit;
 
