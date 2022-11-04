@@ -48,6 +48,10 @@ const handleValidationErrorDB = error => {
   return new AppError(`Invalid input data. ${errors.join('. ')}`, 400);
 };
 
+const handleJsonWebTokenError = () => new AppError('Invalid token!', 401);
+
+const handleTokenExpiredError = () => new AppError('Token has expired!', 401);
+
 const globalErrorHandler = (error, _, res, __) => {
   if (NODE_ENV === 'development') sendErrorDev(res, error);
   if (NODE_ENV === 'production') {
@@ -57,6 +61,11 @@ const globalErrorHandler = (error, _, res, __) => {
     if (newError.code === 11000) newError = handleDuplicateErrorDB(newError);
     if (newError.name === 'ValidationError')
       newError = handleValidationErrorDB(newError);
+
+    if (error.name === 'JsonWebTokenError')
+      newError = handleJsonWebTokenError();
+    if (error.name === 'TokenExpiredError')
+      newError = handleTokenExpiredError();
 
     sendErrorProd(res, newError);
   }

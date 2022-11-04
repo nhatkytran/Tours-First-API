@@ -138,6 +138,6 @@ schema.post('aggregate', function (_, next) {
   next();
 });
 
-const model = mongoose.model('Tour', schema, 'tours');
+const Tour = mongoose.model('Tour', schema, 'tours');
 
-module.exports = model;
+module.exports = Tour;
