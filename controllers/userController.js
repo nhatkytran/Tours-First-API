@@ -1,6 +1,6 @@
-const User = require('./../models/userModel');
-const AppError = require('../utils/appError');
+const AppError = require('./../utils/appError');
 const catchAsync = require('./../utils/catchAsync');
+const User = require('./../models/userModel');
 
 exports.getAllUsers = catchAsync(async (_, res) => {
   const query = User.find();
@@ -21,6 +21,20 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   const user = await query;
 
   if (!user) next(new AppError(`Invalid _id: ${req.params.id}`, 400));
+
+  res.status(200).json({
+    status: 'success',
+    data: { user },
+  });
+});
+
+exports.getOneUser = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const query = User.findById(id);
+  const user = await query;
+
+  if (!user) return next(new AppError('User not found!', 404));
 
   res.status(200).json({
     status: 'success',

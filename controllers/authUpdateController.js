@@ -48,14 +48,14 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
   if (!user) return next(new AppError('User of this email not found!', 404));
 
-  // Clear previous password reset timeout
-  user.gcPasswordResetImmediate();
-
   // 3. Create password reset information and password reset token
   const resetToken = user.createPasswordResetToken();
 
+  // Clear previous password reset timeout
+  user.gcPasswordResetImmediate(true);
+
   // Start garbage collector
-  user.gcPasswordResetStart(true);
+  user.gcPasswordResetStart();
 
   try {
     await user.save({ validateModifiedOnly: true });
@@ -125,7 +125,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 });
 
 const getUserInformation = async id => {
-  const query = User.findById(id).select('+password');
+  const query = User.findById(id).select('+password').select('active');
   const user = await query;
 
   if (!user)
@@ -346,5 +346,114 @@ exports.confirmEmail = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: null,
+  });
+});
+
+exports.deleteAccount = catchAsync(async (req, res, next) => {
+  // 1. Get user's information
+  const user = await getUserInformation(req.user._id);
+
+  // 2. Check current password
+  const { currentPassword } = req.body;
+
+  if (!currentPassword)
+    return next(new AppError('Please provide a current password!', 400));
+
+  if (!(await user.correctPassword(String(currentPassword))))
+    return next(new AppError('Incorrect currentPassword!', 401));
+
+  // 3. Set active false
+  user.active = false;
+
+  await user.save({ validateModifiedOnly: true });
+
+  // 4. Response
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
+});
+
+exports.activateAccount = catchAsync(async (req, res, next) => {
+  // 1. Check email
+  const { email } = req.body;
+
+  if (!email) return next(new AppError('Please provide a email!', 400));
+
+  if (!validator.isEmail(email))
+    return next(new AppError('Please provide a valid email!', 400));
+
+  // 2. Find user and check active
+  const query = User.findOne({ email, active: false });
+  const user = await query;
+
+  if (!user)
+    return next(new AppError('User not found or user is already active', 400));
+
+  // 2. Create activate token
+  const token = user.createActivateToken();
+
+  // Clear previous activate timeout
+  user.gcActivateImmediate(true);
+
+  // Start garbage collector
+  user.gcActivateStart();
+
+  try {
+    await user.save({ validateModifiedOnly: true });
+  } catch (error) {
+    user.gcActivateImmediate(true);
+
+    next(error);
+  }
+
+  // 3. Send email
+  const resetURL = `${req.protocol}://${req.get(
+    'host'
+  )}/api/users/activateAccountConfirm/${email}/${token}`;
+  const subject =
+    'Your activate account confirm token (only valid for 10 mins)';
+  const message = `Enter this link to confirm: ${resetURL}.\nIf it was not you, please ignore this email.`;
+
+  await sendTokenToEmail(
+    res,
+    token,
+    {
+      email,
+      subject,
+      message,
+    },
+    user.gcActivateImmediate
+  );
+});
+
+exports.activateAccountConfirm = catchAsync(async (req, res, next) => {
+  // 1. Find user and check token
+  const { email, token } = req.params;
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const query = User.findOne({
+    email,
+    activateToken: hashedToken,
+    activateTokenExpires: { $gt: Date.now() },
+  });
+  const user = await query;
+
+  if (!user)
+    return next(
+      new AppError('Incorrect email - token or token has expired!', 401)
+    );
+
+  // 2. Activate user
+  user.active = undefined;
+
+  await user.save({ validateModifiedOnly: true });
+
+  user.gcActivateImmediate();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User is now active!',
   });
 });

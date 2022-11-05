@@ -5,6 +5,7 @@ const {
   login,
   protect,
   restrictTo,
+  checkActive,
 } = require('./../controllers/authController');
 const {
   forgotPassword,
@@ -14,8 +15,15 @@ const {
   updateEmail,
   resetEmail,
   confirmEmail,
+  deleteAccount,
+  activateAccount,
+  activateAccountConfirm,
 } = require('./../controllers/authUpdateController');
-const { getAllUsers, updateUser } = require('./../controllers/userController');
+const {
+  getAllUsers,
+  updateUser,
+  getOneUser,
+} = require('./../controllers/userController');
 
 const router = express.Router();
 
@@ -32,8 +40,13 @@ router.route('/updateEmail').post(protect, updateEmail);
 router.route('/resetEmail/:email/:token').patch(resetEmail);
 router.route('/confirmEmail/:email/:currentEmail/:token').patch(confirmEmail);
 
-router.route('/').get(protect, restrictTo('admin', 'lead-guide'), getAllUsers);
+router.route('/deleteAccount').delete(protect, deleteAccount);
+router.route('/activateAccount').post(activateAccount);
+router
+  .route('/activateAccountConfirm/:email/:token')
+  .patch(activateAccountConfirm);
 
-router.route('/:id').patch(updateUser);
+router.route('/:id').get(protect, checkActive, getOneUser).patch(updateUser);
+router.route('/').get(protect, restrictTo('admin', 'lead-guide'), getAllUsers);
 
 module.exports = router;

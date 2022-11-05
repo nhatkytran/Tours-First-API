@@ -95,3 +95,18 @@ exports.restrictTo =
 
     next();
   };
+
+exports.checkActive = catchAsync(async (req, _, next) => {
+  const query = User.findById(req.user._id).select('+active');
+  const user = await query;
+
+  if (user.active === false)
+    return next(
+      new AppError(
+        'User is inactive! Use route /activateAccount to activate user',
+        401
+      )
+    );
+
+  next();
+});
