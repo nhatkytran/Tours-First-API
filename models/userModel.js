@@ -26,6 +26,18 @@ schema.pre('save', async function (next) {
   next();
 });
 
+// Login limit
+schema.methods.loginCheckAttemptsHelper = async (
+  user,
+  remainTimes,
+  blockUntil
+) => {
+  user.loginAttemptsRemain = remainTimes;
+  user.blockLoginUntil = blockUntil;
+
+  await user.save({ validateModifiedOnly: true });
+};
+
 // schema.pre(/^find/, function (next) {
 //   this.find({ active: { $ne: false } });
 //   next();

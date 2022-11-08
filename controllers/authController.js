@@ -28,11 +28,46 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide email and password!', 400));
 
   // 2. Check user and password
-  const query = User.findOne({ email }).select('+password');
+  const querySelectOptions =
+    'password loginAttempts loginAttemptsRemain blockLoginUntil';
+  const query = User.findOne({ email }).select(querySelectOptions);
   const user = await query;
 
-  if (!user || !(await user.correctPassword(String(password))))
+  if (!user)
     return next(new AppError('Email or password is not correct!', 401));
+
+  // Check login attempts
+  const { loginAttempts, loginAttemptsRemain, blockLoginUntil } = user;
+
+  // --> Check timeout
+  if (blockLoginUntil && Date.now() <= blockLoginUntil) {
+    const tryAfterTime = parseInt((blockLoginUntil - Date.now()) / 1000, 10);
+
+    return next(
+      new AppError(
+        `Login failed over ${loginAttempts} time(s). Please try again after ${tryAfterTime} second(s).`,
+        429
+      )
+    );
+  }
+
+  // --> Check attempts
+  if (!(await user.correctPassword(String(password)))) {
+    const remain = loginAttemptsRemain - 1;
+
+    !remain
+      ? await user.loginCheckAttemptsHelper(
+          user,
+          loginAttempts,
+          Date.now() + 1 * 30 * 1000
+        )
+      : await user.loginCheckAttemptsHelper(user, remain, undefined);
+
+    return next(new AppError('Email or password is not correct!', 401));
+  }
+
+  // --> Reset login
+  await user.loginCheckAttemptsHelper(user, loginAttempts, undefined);
 
   // 3. Send token
   await createSendToken(res, 200, user);

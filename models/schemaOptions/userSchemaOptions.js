@@ -77,6 +77,20 @@ const userSchemaOptions = {
   activateTokenExpires: {
     type: Date,
   },
+  loginAttempts: {
+    type: Number,
+    default: 2,
+    select: false,
+  },
+  loginAttemptsRemain: {
+    type: Number,
+    default: 2,
+    select: false,
+  },
+  blockLoginUntil: {
+    type: Date,
+    select: false,
+  },
 };
 
 module.exports = userSchemaOptions;
